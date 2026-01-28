@@ -132,7 +132,7 @@ export default function BacktestChart({ prices, dailyValues, tradeHistory }: Pro
         });
 
         const buyData = tradeHistory
-            .filter(t => t.type === 'BUY')
+            .filter(t => t.type.includes('buy'))
             .map(t => ({
                 time: t.date,
                 open: normalizePrice(t.price * 0.98),
@@ -142,7 +142,7 @@ export default function BacktestChart({ prices, dailyValues, tradeHistory }: Pro
             }));
 
         const sellData = tradeHistory
-            .filter(t => t.type === 'SELL')
+            .filter(t => t.type.includes('sell'))
             .map(t => ({
                 time: t.date,
                 open: normalizePrice(t.price * 1.02),

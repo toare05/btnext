@@ -1,6 +1,4 @@
-"use client";
-
-import { createChart, ColorType, CandlestickSeries, LineSeries, LineStyle } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, LineSeries, LineStyle, HistogramSeries } from 'lightweight-charts';
 import React, { useEffect, useRef } from 'react';
 
 export default function TradingChart({ data }: { data: any[] }) {
@@ -42,6 +40,19 @@ export default function TradingChart({ data }: { data: any[] }) {
 			timeScale: { ...commonOptions.timeScale, visible: true }
 		});
 
+		// --- Background Shading Layer ---
+		const bgSeries = mainChart.addSeries(HistogramSeries, {
+			priceScaleId: 'overlay',
+			color: 'transparent',
+			lastValueVisible: false,
+			priceLineVisible: false,
+		});
+
+		mainChart.priceScale('overlay').applyOptions({
+			scaleMargins: { top: 0, bottom: 0 },
+			visible: false,
+		});
+
 		const candleSeries = mainChart.addSeries(CandlestickSeries, {
 			upColor: '#ef4444', downColor: '#3b82f6', borderVisible: false, wickUpColor: '#ef4444', wickDownColor: '#3b82f6'
 		});
@@ -75,6 +86,17 @@ export default function TradingChart({ data }: { data: any[] }) {
 
 		const timeField = (d: any) => d.time || d.date;
 		const sorted = [...data].sort((a, b) => new Date(timeField(a)).getTime() - new Date(timeField(b)).getTime());
+
+		bgSeries.setData(sorted.map(d => {
+			const { ema20, ema60, ema120, ema200 } = d;
+			if (ema20 && ema60 && ema120 && ema200) {
+				const isBullish = ema20 > ema60 && ema60 > ema120 && ema120 > ema200;
+				const isBearish = ema20 < ema60 && ema60 < ema120 && ema120 < ema200;
+				if (isBullish) return { time: timeField(d), value: 1, color: 'rgba(34, 197, 94, 0.16)' };
+				if (isBearish) return { time: timeField(d), value: 1, color: 'rgba(239, 68, 68, 0.12)' };
+			}
+			return { time: timeField(d), value: 0, color: 'transparent' };
+		}));
 
 		rsiSeries.setData(sorted.map(d => ({ time: timeField(d), value: d.rsi })).filter(d => d.value));
 

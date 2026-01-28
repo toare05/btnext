@@ -13,9 +13,9 @@ export function createRsiStrategy(params: RsiStrategyParams): Strategy {
 
         if (day.rsi !== undefined) {
             if (day.rsi <= params.buyThreshold) {
-                return { signal: 'BUY', amountPercent: params.buyAmount };
+                return { signal: 'BUY', amountPercent: params.buyAmount, reason: 'rsi buy' };
             } else if (day.rsi >= params.sellThreshold) {
-                return { signal: 'SELL', amountPercent: params.sellAmount };
+                return { signal: 'SELL', amountPercent: params.sellAmount, reason: 'rsi sell' };
             }
         }
 

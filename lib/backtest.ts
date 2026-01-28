@@ -13,11 +13,11 @@ export interface MarketContext {
     totalValue: number;
 }
 
-export type Strategy = (context: MarketContext) => { signal: StrategySignal; amountPercent: number };
+export type Strategy = (context: MarketContext) => { signal: StrategySignal; amountPercent: number; reason?: string };
 
 export interface TradeLog {
     date: string;
-    type: 'INITIAL' | 'BUY' | 'SELL';
+    type: string;
     price: number;
     amount: number; // Percentage or Index point
     shares: number;
@@ -71,7 +71,7 @@ export function runBacktest(data: any[], params: BacktestParams): BacktestResult
     // Record Initial State
     tradeHistory.push({
         date: filteredData[0].time,
-        type: 'INITIAL',
+        type: 'start',
         price: filteredData[0].close,
         amount: 0,
         shares: shares,
@@ -88,7 +88,7 @@ export function runBacktest(data: any[], params: BacktestParams): BacktestResult
 
         // Strategy Decision
         const context: MarketContext = { day, currentCash, shares, totalValue };
-        const { signal, amountPercent } = strategy(context);
+        const { signal, amountPercent, reason } = strategy(context);
 
         if (signal === 'BUY' && currentCash > 0) {
             const buyAmount = currentCash * (amountPercent / 100);
@@ -98,7 +98,7 @@ export function runBacktest(data: any[], params: BacktestParams): BacktestResult
 
             tradeHistory.push({
                 date: day.time,
-                type: 'BUY',
+                type: reason || 'BUY',
                 price: currentPrice,
                 amount: amountPercent, // Record the percent used
                 shares: shares,
@@ -115,7 +115,7 @@ export function runBacktest(data: any[], params: BacktestParams): BacktestResult
 
             tradeHistory.push({
                 date: day.time,
-                type: 'SELL',
+                type: reason || 'SELL',
                 price: currentPrice,
                 amount: amountPercent, // Record the percent used
                 shares: shares,
