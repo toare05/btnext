@@ -45,11 +45,28 @@ export default function BacktestChart({ prices, dailyValues, tradeHistory }: Pro
 
         // 2. Strategy Equity Curve (Portfolio Value)
         const strategySeries = chart.addSeries(LineSeries, {
-            color: '#3b82f6', // Bright Blue
+            color: '#3b82f6', // Bright Blue (Total)
             lineWidth: 3,
             priceLineVisible: true,
             lastValueVisible: true,
             title: 'Strategy ROI (%)',
+        });
+
+        const stockSeries = chart.addSeries(LineSeries, {
+            color: '#94a3b8', // Light Slate (Stock Component)
+            lineWidth: 1,
+            priceLineVisible: false,
+            lastValueVisible: true,
+            title: 'Stock (%)',
+        });
+
+        const cashSeries = chart.addSeries(LineSeries, {
+            color: '#10b981', // Emerald (Cash Component)
+            lineWidth: 1,
+            lineStyle: 2, // Dashed
+            priceLineVisible: false,
+            lastValueVisible: true,
+            title: 'Cash (%)',
         });
 
         // 3. Normalization Logic (Sync start at 100%)
@@ -79,6 +96,16 @@ export default function BacktestChart({ prices, dailyValues, tradeHistory }: Pro
         strategySeries.setData(sortedEquity.map(d => ({
             time: d.time,
             value: normalizeValue(d.value),
+        })));
+
+        stockSeries.setData(sortedEquity.map(d => ({
+            time: d.time,
+            value: normalizeValue(d.stock),
+        })));
+
+        cashSeries.setData(sortedEquity.map(d => ({
+            time: d.time,
+            value: normalizeValue(d.cash),
         })));
 
         // 4. Trade Markers (Normalizing Marker positions)

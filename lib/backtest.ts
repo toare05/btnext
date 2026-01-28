@@ -1,9 +1,19 @@
 export interface BacktestParams {
     startDate: string;
     stockRatio: number; // 0 to 100
-    buyPercent: number; // % of cash to use for buy
-    sellPercent: number; // % of stock to sell
+    strategy: Strategy;
 }
+
+export type StrategySignal = 'BUY' | 'SELL' | 'HOLD';
+
+export interface MarketContext {
+    day: any;
+    currentCash: number;
+    shares: number;
+    totalValue: number;
+}
+
+export type Strategy = (context: MarketContext) => { signal: StrategySignal; amountPercent: number };
 
 export interface TradeLog {
     date: string;
@@ -27,12 +37,14 @@ export interface BacktestResult {
         time: string;
         value: number;
         benchmark: number;
+        cash: number;
+        stock: number;
     }[];
     prices: any[]; // Store filtered price data for candlestick chart
 }
 
 export function runBacktest(data: any[], params: BacktestParams): BacktestResult {
-    const { startDate, stockRatio, buyPercent, sellPercent } = params;
+    const { startDate, stockRatio, strategy } = params;
     const initialTotalValue = 100; // Fixed Base for Percentage calculation
 
     // 1. Filter data starting from startDate
@@ -49,7 +61,7 @@ export function runBacktest(data: any[], params: BacktestParams): BacktestResult
     let shares = (initialTotalValue * (stockRatio / 100)) / filteredData[0].close;
 
     const tradeHistory: TradeLog[] = [];
-    const dailyValues: { time: string; value: number; benchmark: number }[] = [];
+    const dailyValues: { time: string; value: number; benchmark: number; cash: number; stock: number }[] = [];
     let peakValue = initialTotalValue;
     let maxDrawdown = 0;
 
@@ -74,45 +86,44 @@ export function runBacktest(data: any[], params: BacktestParams): BacktestResult
         const stockValue = shares * currentPrice;
         const totalValue = stockValue + currentCash;
 
-        // RSI Check
-        if (day.rsi !== undefined) {
-            if (day.rsi <= 25) {
-                // Buy: buyPercent of current cash
-                const buyAmount = currentCash * (buyPercent / 100);
-                const buyShares = buyAmount / currentPrice;
-                shares += buyShares;
-                currentCash -= buyAmount;
+        // Strategy Decision
+        const context: MarketContext = { day, currentCash, shares, totalValue };
+        const { signal, amountPercent } = strategy(context);
 
-                tradeHistory.push({
-                    date: day.time,
-                    type: 'BUY',
-                    price: currentPrice,
-                    amount: buyAmount,
-                    shares: shares,
-                    remainingCash: currentCash,
-                    totalValue: shares * currentPrice + currentCash,
-                    stockRatio: ((shares * currentPrice) / (shares * currentPrice + currentCash)) * 100,
-                    benchmarkValue: initialBenchmarkShares * currentPrice
-                });
-            } else if (day.rsi >= 75) {
-                // Sell: sellPercent of stock holdings
-                const sellShares = shares * (sellPercent / 100);
-                const sellAmount = sellShares * currentPrice;
-                shares -= sellShares;
-                currentCash += sellAmount;
+        if (signal === 'BUY' && currentCash > 0) {
+            const buyAmount = currentCash * (amountPercent / 100);
+            const buyShares = buyAmount / currentPrice;
+            shares += buyShares;
+            currentCash -= buyAmount;
 
-                tradeHistory.push({
-                    date: day.time,
-                    type: 'SELL',
-                    price: currentPrice,
-                    amount: sellAmount,
-                    shares: shares,
-                    remainingCash: currentCash,
-                    totalValue: shares * currentPrice + currentCash,
-                    stockRatio: ((shares * currentPrice) / (shares * currentPrice + currentCash)) * 100,
-                    benchmarkValue: initialBenchmarkShares * currentPrice
-                });
-            }
+            tradeHistory.push({
+                date: day.time,
+                type: 'BUY',
+                price: currentPrice,
+                amount: amountPercent, // Record the percent used
+                shares: shares,
+                remainingCash: currentCash,
+                totalValue: shares * currentPrice + currentCash,
+                stockRatio: ((shares * currentPrice) / (shares * currentPrice + currentCash)) * 100,
+                benchmarkValue: initialBenchmarkShares * currentPrice
+            });
+        } else if (signal === 'SELL' && shares > 0) {
+            const sellShares = shares * (amountPercent / 100);
+            const sellAmount = sellShares * currentPrice;
+            shares -= sellShares;
+            currentCash += sellAmount;
+
+            tradeHistory.push({
+                date: day.time,
+                type: 'SELL',
+                price: currentPrice,
+                amount: amountPercent, // Record the percent used
+                shares: shares,
+                remainingCash: currentCash,
+                totalValue: shares * currentPrice + currentCash,
+                stockRatio: ((shares * currentPrice) / (shares * currentPrice + currentCash)) * 100,
+                benchmarkValue: initialBenchmarkShares * currentPrice
+            });
         }
 
         // Daily Value Tracking & MDD
@@ -122,7 +133,9 @@ export function runBacktest(data: any[], params: BacktestParams): BacktestResult
         dailyValues.push({
             time: day.time,
             value: endOfDayValue,
-            benchmark: benchmarkValue
+            benchmark: benchmarkValue,
+            cash: currentCash,
+            stock: stockValue
         });
 
         if (endOfDayValue > peakValue) {

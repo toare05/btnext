@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import TradingChart from "@/components/TradingChart";
 import { runBacktest, BacktestResult as BacktestResultType } from "@/lib/backtest";
+import { createRsiStrategy } from "@/lib/strategies/rsiStrategy";
 import BacktestResult from "@/components/BacktestResult";
 
 export default function BacktestPage() {
@@ -43,11 +44,19 @@ export default function BacktestPage() {
 
   const handleRunBacktest = () => {
     if (prices.length === 0) return;
+
+    // Configure the modular strategy
+    const rsiStrategy = createRsiStrategy({
+      buyThreshold: 25,
+      buyAmount: buyPercent,
+      sellThreshold: 75,
+      sellAmount: sellPercent
+    });
+
     const result = runBacktest(prices, {
       startDate,
       stockRatio: stockRatio,
-      buyPercent: buyPercent,
-      sellPercent: sellPercent
+      strategy: rsiStrategy
     });
     setBtResult(result);
   };
@@ -237,23 +246,7 @@ export default function BacktestPage() {
         {btResult && <BacktestResult result={btResult} />}
       </section>
 
-      {/* ================= 전략 설명 ================= */}
-      <section
-        style={{
-          marginTop: "40px",
-          padding: "30px",
-          backgroundColor: "#f8fafc",
-          borderRadius: "16px",
-          border: "1px dashed #cbd5e1",
-        }}
-      >
-        <h3 className="text-lg font-bold mb-2">💡 현재 벡테스팅 전략</h3>
-        <ul className="text-sm text-slate-600 space-y-1 list-disc pl-5">
-          <li><strong>매수 조건:</strong> RSI 25 이하일 때, 보유 현금의 20% 매수</li>
-          <li><strong>매도 조건:</strong> RSI 75 이상일 때, 보유 주식의 5% 매도</li>
-          <li><strong>거래 가격:</strong> 당일 종가 기준 / 수수료 없음</li>
-        </ul>
-      </section>
+
     </main>
   );
 }
