@@ -2,11 +2,20 @@
 
 import { useEffect, useState } from "react";
 import TradingChart from "@/components/TradingChart";
+import { runBacktest, BacktestResult as BacktestResultType } from "@/lib/backtest";
+import BacktestResult from "@/components/BacktestResult";
 
 export default function BacktestPage() {
   const [prices, setPrices] = useState<any[]>([]);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Backtest State
+  const [startDate, setStartDate] = useState("2010-02-11");
+  const [stockRatio, setStockRatio] = useState(80);
+  const [buyPercent, setBuyPercent] = useState(20);
+  const [sellPercent, setSellPercent] = useState(5);
+  const [btResult, setBtResult] = useState<BacktestResultType | null>(null);
 
   const fetchData = async (forceUpdate = false) => {
     setIsLoading(true);
@@ -32,10 +41,21 @@ export default function BacktestPage() {
     fetchData();
   }, []);
 
+  const handleRunBacktest = () => {
+    if (prices.length === 0) return;
+    const result = runBacktest(prices, {
+      startDate,
+      stockRatio: stockRatio,
+      buyPercent: buyPercent,
+      sellPercent: sellPercent
+    });
+    setBtResult(result);
+  };
+
   return (
     <main
       style={{
-        padding: "40px 20% 200px 40px", // 우측 20%, 하단 200px 여백
+        padding: "40px 20% 200px 40px",
         backgroundColor: "#f8fafc",
         minHeight: "150vh",
         color: "#1e293b",
@@ -161,22 +181,78 @@ export default function BacktestPage() {
         )}
       </section>
 
-      {/* ================= 하단 분석 ================= */}
+      {/* ================= 백테스트 설정 ================= */}
+      <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm transition-all duration-300">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+          <h2 className="text-xl font-black text-slate-800 tracking-tight">Strategy Tester</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">시작 날짜</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">초기 주식 비중 (%)</label>
+            <input
+              type="number"
+              value={stockRatio}
+              onChange={(e) => setStockRatio(Number(e.target.value))}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">매수 비중 (RSI≤25, %)</label>
+            <input
+              type="number"
+              value={buyPercent}
+              onChange={(e) => setBuyPercent(Number(e.target.value))}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">매도 비중 (RSI≥75, %)</label>
+            <input
+              type="number"
+              value={sellPercent}
+              onChange={(e) => setSellPercent(Number(e.target.value))}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleRunBacktest}
+          className="mt-8 w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all active:scale-[0.98]"
+        >
+          백테스트 실행하기
+        </button>
+
+        {btResult && <BacktestResult result={btResult} />}
+      </section>
+
+      {/* ================= 전략 설명 ================= */}
       <section
         style={{
-          marginTop: "60px",
+          marginTop: "40px",
           padding: "30px",
-          backgroundColor: "#f1f5f9",
+          backgroundColor: "#f8fafc",
           borderRadius: "16px",
           border: "1px dashed #cbd5e1",
         }}
       >
-        <h3 style={{ marginTop: 0 }}>📊 전략 분석 리포트</h3>
-        <p style={{ color: "#64748b", lineHeight: "1.6" }}>
-          차트 아래에 스크롤 공간을 확보했습니다. 이곳에 향후 백테스팅
-          결과(수익률, MDD, 승률 등)를 요약하는 테이블이나 Obsidian 스타일의
-          노트 정리함을 배치할 수 있습니다.
-        </p>
+        <h3 className="text-lg font-bold mb-2">💡 현재 벡테스팅 전략</h3>
+        <ul className="text-sm text-slate-600 space-y-1 list-disc pl-5">
+          <li><strong>매수 조건:</strong> RSI 25 이하일 때, 보유 현금의 20% 매수</li>
+          <li><strong>매도 조건:</strong> RSI 75 이상일 때, 보유 주식의 5% 매도</li>
+          <li><strong>거래 가격:</strong> 당일 종가 기준 / 수수료 없음</li>
+        </ul>
       </section>
     </main>
   );
